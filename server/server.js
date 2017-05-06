@@ -16,21 +16,33 @@ const twoline = require('./models/twoline.js');
 
 const satelliteList = ['noaa-18', 'noaa-19'];
 
-task.removeObsolete();
-task.removeRepetitive();
-
-task.registerJob(task.jobs.TEST, (...args) => {
-  const appearDate = moment().format('DD/MM/YY HH:mm:ss');
-  log.info(`${appearDate}: test job started. Args: ${args}`);
-});
-task.registerJob(task.jobs.TRACK, satellite => point.generate(satellite));
-task.registerJob(task.jobs.TLE, () => twoline.update());
-
-satelliteList.forEach((satellite, i) =>
-  task.scheduleJob(task.jobs.TRACK, `${i + 1} */2 * * *`, satellite));
-task.scheduleJob(task.jobs.TLE, { dayOfWeek: 0 });
-
-task.runExpired();
+const startupTasks = Promise.all([
+  task.removeObsolete(),
+  task.removeRepetitive(),
+]).then(() => Promise.all([
+  task.registerJob(task.jobs.TEST, (...args) => {
+    const appearDate = moment().format('DD/MM/YY HH:mm:ss');
+    log.info(`${appearDate}: test job started. Args: ${args}`);
+  }),
+  task.registerJob(task.jobs.CLEANUP, () => point.cleanup()),
+  task.registerJob(task.jobs.TLE, () => twoline.update()),
+  task.registerJob(task.jobs.TRACK, satellite => point.generate(satellite)),
+])).then(() => Promise.all([
+  task.scheduleJob(task.jobs.CLEANUP, '30 * * * *'),
+  task.scheduleJob(task.jobs.TLE, { dayOfWeek: 0 }),
+  new Promise((resolve, reject) => {
+    try {
+      satelliteList.forEach(satellite =>
+      setTimeout(() => task.scheduleJob(task.jobs.TRACK, '*/30 * * * *', satellite)), 60000);
+      resolve();
+    } catch (e) {
+      reject(e);
+    }
+  }),
+])).then(() => task.run('CLEANUP'))
+  .then(() => twoline.update())
+  .then(() => task.run('TRACK'))
+  .catch(e => log.error(e));
 
 
 const app = express();
@@ -77,6 +89,8 @@ app.get('/passes', (req, res) => {
   });
 });
 
-app.listen(port, () => {
-  log.info(`Server is up on port ${port}`);
+startupTasks.then(() => {
+  app.listen(port, () => {
+    log.info(`Server is up on port ${port}`);
+  });
 });

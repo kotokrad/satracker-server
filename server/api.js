@@ -43,10 +43,10 @@ function getTrack(satellite) {
   const currentShortDate = sat.toShortDate(moment());
   return point.find({
     satellite,
-    timestamp: { $gte: currentShortDate - (6140 / 4) },
+    timestamp: { $gte: currentShortDate - (6480 / 4) },
   }, 'lat lng height timestamp', {
     sort: { timestamp: 1 },
-    limit: 6140,
+    limit: 6480,
     // eslint-disable-next-line
   }).then(track => track.map((p) => {
     return {

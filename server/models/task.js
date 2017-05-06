@@ -2,7 +2,6 @@ const mongoose = require('../db/mongoose.js');
 const schedule = require('node-schedule');
 const log = require('../utils/log.js')(module);
 const moment = require('moment');
-const api = require('../api.js');
 
 const Schema = mongoose.Schema;
 
@@ -36,6 +35,7 @@ TaskSchema.statics.jobs = {
   TEST: 'TEST',
   TRACK: 'TRACK',
   TLE: 'TLE',
+  CLEANUP: 'CLEANUP',
 };
 
 TaskSchema.statics.registerJob = function registerJob(type, func) {
@@ -47,51 +47,67 @@ TaskSchema.statics.registerJob = function registerJob(type, func) {
 
 TaskSchema.statics.scheduleJob = function scheduleJob(type, rawSpec, ...args) {
   const spec = moment.isMoment(rawSpec) ? rawSpec.toDate() : rawSpec;
-  const task = new this({
-    type,
-    args,
-    execDate: spec instanceof Date ? spec.valueOf() : 0,
-    addDate: moment().valueOf(),
+  return new Promise((resolve, reject) => {
+    const task = new this({
+      type,
+      args,
+      execDate: spec instanceof Date ? spec.valueOf() : 0,
+      addDate: moment().valueOf(),
+    });
+    task.save()
+      .then(() => {
+        try {
+          schedule.scheduleJob(spec, () => task.run());
+          resolve();
+        } catch (e) {
+          reject(e);
+        }
+      })
+      .catch(e => log.error(e));
   });
-  task.save();
-  schedule.scheduleJob(spec, () => task.run());
 };
 
 TaskSchema.statics.runExpired = function runExpired() {
-  this.find({
+  return this.find({
     execDate: { $gt: 0, $lt: moment().valueOf() },
     completed: false,
-  }).then(tasks => tasks.forEach(task => task.run()));
+  }).then(tasks => tasks.forEach(task => task.run()))
+    .catch(e => log.error(e));
 };
 
 TaskSchema.statics.removeRepetitive = function runExpired() {
-  this.remove({
+  return this.remove({
     execDate: 0,
   }).then(({ result }) => {
-    log.info(`Removed ${result.n} repetitive jobs`);
+    log.info(`Removed ${result.n} repetitive tasks`);
   }).catch((e) => {
-    log.error(e.toString());
+    log.error(e);
   });
 };
 
 TaskSchema.statics.removeObsolete = function runExpired() {
-  this.remove({
+  return this.remove({
     addDate: { $lt: moment().subtract(10, 'd').valueOf() },
     completed: true,
   }).then(({ result }) => {
-    log.info(`Removed ${result.n} obsolete jobs`);
+    log.info(`Removed ${result.n} obsolete tasks`);
   }).catch((e) => {
-    log.error(e.toString());
+    log.error(e);
   });
 };
 
-TaskSchema.methods.run = function run() {
+TaskSchema.statics.run = function staticRun(type) {
+  return this.find({ type }).then(tasks => tasks.map(task => task.run()));
+};
+
+TaskSchema.methods.run = function methodRun() {
   log.info(`Job ${this.type} started`);
-  jobs[this.type](...this.args);
+  const result = jobs[this.type](...this.args);
   if (this.execDate) {
     this.completed = true;
+    this.save();
   }
-  this.save();
+  return result;
 };
 
 const Task = mongoose.model('Task', TaskSchema);

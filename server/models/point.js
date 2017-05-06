@@ -34,7 +34,7 @@ PointSchema.statics.generate = function generate(satellite) {
   // eslint-disable-next-line
   console.time(`[${satellite}] point.generate`);
   let trackDate;
-  Promise.all([
+  return Promise.all([
     TwoLine.findOne({
       satellite: { $eq: satellite },
     }),
@@ -50,9 +50,9 @@ PointSchema.statics.generate = function generate(satellite) {
       const lastDate = lastPoint.timestamp;
       trackDate = lastDate + 1;
     } else {
-      trackDate = sat.toShortDate(moment(new Date()).subtract(1, 'h'));
+      trackDate = sat.toShortDate(moment(new Date()).subtract(30, 'm'));
     }
-    const endDate = sat.toShortDate(moment(new Date()).add(1, 'h'));
+    const endDate = sat.toShortDate(moment(new Date()).add(30, 'm'));
     log.info(`[${satellite}] generating ${endDate - trackDate} points`);
     const data = [];
     while (trackDate < endDate) {
@@ -76,15 +76,15 @@ PointSchema.statics.generate = function generate(satellite) {
 
 PointSchema.statics.cleanup = function cleanup() {
   const obsoleteDate = sat.toShortDate(moment(new Date()).subtract(3, 'h'));
-  this.remove({
+  return this.remove({
     timestamp: { $lt: obsoleteDate },
   }).then((data) => {
-    log.info(`removed ${data.result.n} points`);
+    log.info(`Removed ${data.result.n} obsolete points`);
   });
 };
 
 PointSchema.statics.clear = function clear() {
-  this.remove({}).then((data) => {
+  return this.remove({}).then((data) => {
     log.info(`removed ${data.result.n} points`);
   });
 };

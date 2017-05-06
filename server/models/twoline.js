@@ -19,7 +19,7 @@ const TwoLineSchema = new Schema({
 TwoLineSchema.statics.update = function update() {
   const expression = /([A-Z 0-9]*)\s\[.*\n(^.*$)\n(^.*$)/gm;
   const url = 'http://www.celestrak.com/NORAD/elements/noaa.txt';
-  axios.get(url).then((res) => {
+  return axios.get(url).then((res) => {
     const string = res.data.replace(/\r/gm, '');
     let lines;
     // eslint-disable-next-line
