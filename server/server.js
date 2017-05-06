@@ -5,9 +5,33 @@ const port = process.env.PORT;
 const url = require('url');
 const path = require('path');
 const express = require('express');
+const moment = require('moment');
 const bodyParser = require('body-parser');
 const log = require('./utils/log.js')(module);
 const api = require('./api.js');
+
+const task = require('./models/task.js');
+const point = require('./models/point.js');
+const twoline = require('./models/twoline.js');
+
+const satelliteList = ['noaa-18', 'noaa-19'];
+
+task.removeObsolete();
+task.removeRepetitive();
+
+task.registerJob(task.jobs.TEST, (...args) => {
+  const appearDate = moment().format('DD/MM/YY HH:mm:ss');
+  log.info(`${appearDate}: test job started. Args: ${args}`);
+});
+task.registerJob(task.jobs.TRACK, satellite => point.generate(satellite));
+task.registerJob(task.jobs.TLE, () => twoline.update());
+
+satelliteList.forEach((satellite, i) =>
+  task.scheduleJob(task.jobs.TRACK, `${i + 1} */2 * * *`, satellite));
+task.scheduleJob(task.jobs.TLE, { dayOfWeek: 0 });
+
+task.runExpired();
+
 
 const app = express();
 
@@ -25,7 +49,6 @@ app.use((req, res, next) => {
   next();
 });
 app.use((req, res, next) => {
-  console.log(url.parse(req.url).pathname);
   const pathname = url.parse(req.url).pathname;
   const endpoints = ['/track', '/passes'];
   if (endpoints.includes(pathname) && !req.query.satellite) {
