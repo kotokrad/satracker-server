@@ -46,11 +46,11 @@ PointSchema.statics.generate = function generate(satellite) {
   ]).then((results) => {
     const twoline = results[0];
     const lastPoint = results[1];
-    if (lastPoint) {
-      const lastDate = lastPoint.timestamp;
-      trackDate = lastDate + 1;
+    const limitDate = sat.toShortDate(moment(new Date()).subtract(30, 'm'));
+    if (lastPoint && lastPoint.timestamp >= limitDate) {
+      trackDate = lastPoint.timestamp + 1;
     } else {
-      trackDate = sat.toShortDate(moment(new Date()).subtract(30, 'm'));
+      trackDate = limitDate;
     }
     const endDate = sat.toShortDate(moment(new Date()).add(30, 'm'));
     log.info(`[${satellite}] generating ${endDate - trackDate} points`);
