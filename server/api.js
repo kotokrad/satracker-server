@@ -42,8 +42,14 @@ function getPassList(req) {
 function getTrack(req) {
   const satellite = req.query.satellite;
   const currentShortDate = sat.toShortDate(moment());
-  const timestamp = req.query.timestamp || currentShortDate - (6480 / 4);
-  const points = Number(req.query.points) || 6480;
+  let timestamp = Number(req.query.timestamp);
+  let points = Number(req.query.points);
+  if (!timestamp || timestamp < 1000000000 || timestamp > 9000000000) {
+    timestamp = currentShortDate - (6480 / 4);
+  }
+  if (!points || points < 1 || points > 6480) {
+    points = 6480;
+  }
   return point.find({
     satellite,
     timestamp: { $gte: timestamp },
