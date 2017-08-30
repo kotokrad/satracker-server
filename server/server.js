@@ -73,7 +73,7 @@ app.use((req, res, next) => {
 });
 
 app.get('/track', (req, res) => {
-  api.getTrack(req.query.satellite).then((track) => {
+  api.getTrack(req).then((track) => {
     res.send(track);
   }).catch((e) => {
     log.error(e.toString());

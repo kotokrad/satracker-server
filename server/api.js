@@ -39,14 +39,17 @@ function getPassList(req) {
   });
 }
 
-function getTrack(satellite) {
+function getTrack(req) {
+  const satellite = req.query.satellite;
   const currentShortDate = sat.toShortDate(moment());
+  const timestamp = req.query.timestamp || currentShortDate - (6480 / 4);
+  const points = Number(req.query.points) || 6480;
   return point.find({
     satellite,
-    timestamp: { $gte: currentShortDate - (6480 / 4) },
+    timestamp: { $gte: timestamp },
   }, 'lat lng height timestamp', {
     sort: { timestamp: 1 },
-    limit: 6480,
+    limit: points,
     // eslint-disable-next-line
   }).then(track => track.map((p) => {
     return {
