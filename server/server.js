@@ -74,7 +74,10 @@ app.use((req, res, next) => {
 
 app.get('/track', (req, res) => {
   api.getTrack(req).then((track) => {
-    res.send(track);
+    res.send({
+      satellite: req.query.satellite,
+      data: track,
+    });
   }).catch((e) => {
     log.error(e.toString());
   });
@@ -83,7 +86,10 @@ app.get('/track', (req, res) => {
 app.get('/passes', (req, res) => {
   log.info(req.query);
   api.getPassList(req).then((passList) => {
-    res.send(passList);
+    res.send({
+      satellite: req.query.satellite,
+      data: passList,
+    });
   }).catch((e) => {
     log.error(e.toString());
   });
